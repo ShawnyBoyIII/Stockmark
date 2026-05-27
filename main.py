@@ -5,14 +5,14 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 from bot.telegram_bot import TelegramNotifier, load_stocks
-from bot.data_fetcher import fetch_intraday_data, get_current_price
+from bot.data_fetcher import fetch_intraday_data
 from bot.indicators import add_technical_indicators, generate_technical_signal
 from bot.ai_predictor import AIPredictor
 
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
 
 async def analyze_stock(ticker: str, ai_predictors: dict) -> str:
     """
@@ -33,7 +34,9 @@ async def analyze_stock(ticker: str, ai_predictors: dict) -> str:
     ai = ai_predictors[ticker]
 
     # 1. Fetch Data
-    df = fetch_intraday_data(ticker, interval='1h', days_back=60) # Fetch 60 days of hourly data for good indicator/AI context
+    df = fetch_intraday_data(
+        ticker, interval="1h", days_back=60
+    )  # Fetch 60 days of hourly data for good indicator/AI context
     if df.empty:
         return ""
 
@@ -63,11 +66,11 @@ async def analyze_stock(ticker: str, ai_predictors: dict) -> str:
         final_signal = "WEAK BUY"
     # Weak Sell: AI predicts DOWN, but Technicals are neutral (Hold)
     elif tech_signal == "HOLD" and ai_signal == "DOWN":
-         final_signal = "WEAK SELL"
+        final_signal = "WEAK SELL"
 
     # Only notify on strong or weak buy/sell (ignore standard holds)
     if final_signal != "HOLD":
-        current_price = get_current_price(ticker)
+        current_price = df_with_indicators["Close"].iloc[-1]
 
         # Format the alert
         emoji = "🟢" if "BUY" in final_signal else "🔴"
@@ -82,6 +85,7 @@ async def analyze_stock(ticker: str, ai_predictors: dict) -> str:
 
     return ""
 
+
 async def main_loop():
     """The continuous monitoring loop."""
     logger.info("Initializing bot components...")
@@ -94,21 +98,29 @@ async def main_loop():
     ai_predictors = {}
 
     if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
-        await notifier.send_message("🚀 Bot started! Monitoring stocks continuously...")
+        await notifier.send_message(
+            "🚀 Bot started! Monitoring stocks continuously..."
+        )
     else:
-        logger.warning("Running without Telegram notifications (Check your .env file).")
+        logger.warning(
+            "Running without Telegram notifications (Check your .env file)."
+        )
 
     while True:
         try:
             # Simple check if it's weekend, wait
             now = datetime.now()
-            if now.weekday() >= 5: # Saturday or Sunday
-                logger.info("Market is closed (Weekend). Sleeping for 1 hour...")
+            if now.weekday() >= 5:  # Saturday or Sunday
+                logger.info(
+                    "Market is closed (Weekend). Sleeping for 1 hour..."
+                )
                 await asyncio.sleep(3600)
                 continue
 
             stocks_to_monitor = load_stocks()
-            logger.info(f"Starting analysis cycle for {len(stocks_to_monitor)} stocks...")
+            logger.info(
+                f"Starting analysis cycle for {len(stocks_to_monitor)} stocks..."
+            )
 
             for ticker in stocks_to_monitor:
                 signal_message = await analyze_stock(ticker, ai_predictors)
@@ -126,9 +138,9 @@ async def main_loop():
             now = datetime.now()
             next_hour = now.replace(minute=0, second=0, microsecond=0)
             if now.hour == 23:
-                 next_hour = next_hour.replace(hour=0, day=now.day + 1)
+                next_hour = next_hour.replace(hour=0, day=now.day + 1)
             else:
-                 next_hour = next_hour.replace(hour=now.hour + 1)
+                next_hour = next_hour.replace(hour=now.hour + 1)
 
             sleep_seconds = (next_hour - now).total_seconds()
 
@@ -136,16 +148,19 @@ async def main_loop():
             if sleep_seconds < 60:
                 sleep_seconds += 3600
 
-            logger.info(f"Sleeping for {sleep_seconds} seconds until next check...")
+            logger.info(
+                f"Sleeping for {sleep_seconds} seconds until next check..."
+            )
             await asyncio.sleep(sleep_seconds)
 
         except Exception as e:
             logger.error(f"Error in main loop: {e}")
-            await asyncio.sleep(60) # Sleep 1 minute on error before retrying
+            await asyncio.sleep(60)  # Sleep 1 minute on error before retrying
+
 
 if __name__ == "__main__":
     # Ensure asyncio event loop handles the async execution
     try:
-         asyncio.run(main_loop())
+        asyncio.run(main_loop())
     except KeyboardInterrupt:
-         logger.info("Bot stopped by user.")
+        logger.info("Bot stopped by user.")

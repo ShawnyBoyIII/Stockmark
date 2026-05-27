@@ -102,6 +102,7 @@ class TelegramNotifier:
     def __init__(self, token: str, chat_id: str):
         self.token = token
         self.chat_id = chat_id
+        self.app = None
         if not self.token or not self.chat_id:
             logger.error("Telegram token or Chat ID is missing. Notifications will fail.")
         else:
