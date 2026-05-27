@@ -12,6 +12,9 @@ class AIPredictor:
         # and is less prone to overfitting than a single decision tree.
         self.model = RandomForestClassifier(n_estimators=100, random_state=42)
         self.is_trained = False
+        self.features = ['Open', 'High', 'Low', 'Close', 'Volume',
+                         'SMA_20', 'EMA_50', 'RSI_14', 'MACD', 'MACD_Signal', 'MACD_Diff',
+                         'BB_High', 'BB_Low', 'BB_Mid']
 
     def prepare_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -39,13 +42,8 @@ class AIPredictor:
             logger.warning("Not enough data to train AI model.")
             return
 
-        # Features (X): all columns except our Target
-        features = ['Open', 'High', 'Low', 'Close', 'Volume',
-                    'SMA_20', 'EMA_50', 'RSI_14', 'MACD', 'MACD_Signal', 'MACD_Diff',
-                    'BB_High', 'BB_Low', 'BB_Mid']
-
         # Ensure all feature columns exist in the dataframe
-        available_features = [f for f in features if f in df_prep.columns]
+        available_features = [f for f in self.features if f in df_prep.columns]
 
         X = df_prep[available_features]
         y = df_prep['Target']
@@ -72,12 +70,7 @@ class AIPredictor:
             if not self.is_trained:
                 return 'UNKNOWN'
 
-        # Features (X):
-        features = ['Open', 'High', 'Low', 'Close', 'Volume',
-                    'SMA_20', 'EMA_50', 'RSI_14', 'MACD', 'MACD_Signal', 'MACD_Diff',
-                    'BB_High', 'BB_Low', 'BB_Mid']
-
-        available_features = [f for f in features if f in df.columns]
+        available_features = [f for f in self.features if f in df.columns]
 
         if not available_features:
              return 'UNKNOWN'
