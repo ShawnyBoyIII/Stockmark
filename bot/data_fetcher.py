@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import datetime, timedelta
 import logging
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def fetch_intraday_data(ticker_symbol: str, interval: str = '1h', days_back: int = 30) -> pd.DataFrame:
