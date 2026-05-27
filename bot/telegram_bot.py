@@ -1,7 +1,6 @@
 import os
 import json
 import logging
-from typing import List
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
@@ -11,34 +10,46 @@ STOCKS_FILE = "stocks.json"
 
 # Default small-cap stocks
 DEFAULT_STOCKS = [
-    "MSTR", "CELH", "SMCI", "ELF", "RXRX",
-    "ALKT", "HIMS", "SOUN", "PLTR", "IONQ"
+    "MSTR",
+    "CELH",
+    "SMCI",
+    "ELF",
+    "RXRX",
+    "ALKT",
+    "HIMS",
+    "SOUN",
+    "PLTR",
+    "IONQ",
 ]
 
-def load_stocks() -> List[str]:
+
+def load_stocks() -> set:
     """Loads stocks from file or creates it with defaults."""
     if not os.path.exists(STOCKS_FILE):
         save_stocks(DEFAULT_STOCKS)
-        return DEFAULT_STOCKS
+        return set(DEFAULT_STOCKS)
     try:
         with open(STOCKS_FILE, "r") as f:
-            return json.load(f)
+            return set(json.load(f))
     except Exception as e:
         logger.error(f"Error loading stocks: {e}")
-        return DEFAULT_STOCKS
+        return set(DEFAULT_STOCKS)
 
-def save_stocks(stocks: List[str]):
+
+def save_stocks(stocks: set):
     """Saves the current stock list to a file."""
     try:
         with open(STOCKS_FILE, "w") as f:
-            json.dump(stocks, f)
+            json.dump(list(stocks), f)
     except Exception as e:
         logger.error(f"Error saving stocks: {e}")
+
 
 def is_authorized(update: Update) -> bool:
     """Checks if the user sending the message is authorized."""
     allowed_chat_id = os.getenv("TELEGRAM_CHAT_ID")
     return allowed_chat_id and str(update.effective_chat.id) == allowed_chat_id
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /start command."""
@@ -53,7 +64,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "`/add TICKER` (e.g., `/add AAPL`)\n\n"
         "To view your current list, type `/list`."
     )
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=welcome_message, parse_mode='Markdown')
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=welcome_message,
+        parse_mode="Markdown",
+    )
+
 
 async def add_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /add <ticker> command."""
@@ -64,7 +80,7 @@ async def add_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Please provide a ticker symbol. Example: `/add AAPL`",
-            parse_mode='Markdown'
+            parse_mode="Markdown",
         )
         return
 
@@ -74,15 +90,16 @@ async def add_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if new_ticker in current_stocks:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=f"⚠️ {new_ticker} is already in your monitoring list."
+            text=f"⚠️ {new_ticker} is already in your monitoring list.",
         )
     else:
-        current_stocks.append(new_ticker)
+        current_stocks.add(new_ticker)
         save_stocks(current_stocks)
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=f"✅ Successfully added {new_ticker} to your monitoring list!"
+            text=f"✅ Successfully added {new_ticker} to your monitoring list!",
         )
+
 
 async def list_stocks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /list command."""
@@ -90,20 +107,21 @@ async def list_stocks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     current_stocks = load_stocks()
-    stock_list = "\n".join([f"- {s}" for s in current_stocks])
+    stock_list = "\n".join([f"- {s}" for s in sorted(current_stocks)])
     message = f"📋 *Currently Monitored Stocks:*\n\n{stock_list}"
     await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=message,
-        parse_mode='Markdown'
+        chat_id=update.effective_chat.id, text=message, parse_mode="Markdown"
     )
+
 
 class TelegramNotifier:
     def __init__(self, token: str, chat_id: str):
         self.token = token
         self.chat_id = chat_id
         if not self.token or not self.chat_id:
-            logger.error("Telegram token or Chat ID is missing. Notifications will fail.")
+            logger.error(
+                "Token or Chat ID missing. Notifications will fail."
+            )
         else:
             self.app = ApplicationBuilder().token(self.token).build()
             # Register commands
@@ -114,19 +132,23 @@ class TelegramNotifier:
     async def start_listening(self):
         """Starts the bot to listen for commands in the background."""
         if self.app:
-             logger.info("Starting Telegram bot listener...")
-             await self.app.initialize()
-             await self.app.start()
-             await self.app.updater.start_polling()
+            logger.info("Starting Telegram bot listener...")
+            await self.app.initialize()
+            await self.app.start()
+            await self.app.updater.start_polling()
 
     async def send_message(self, text: str):
         """Sends a message to the specified chat ID."""
         if not self.app or not self.chat_id:
-            logger.warning("Cannot send message: App not initialized or Chat ID missing.")
+            logger.warning(
+                "Cannot send message: App not initialized or Chat ID missing."
+            )
             return
 
         try:
-            await self.app.bot.send_message(chat_id=self.chat_id, text=text, parse_mode='Markdown')
+            await self.app.bot.send_message(
+                chat_id=self.chat_id, text=text, parse_mode="Markdown"
+            )
             logger.info(f"Telegram message sent: {text[:30]}...")
         except Exception as e:
             logger.error(f"Failed to send Telegram message: {e}")
